@@ -1,9 +1,13 @@
 {
-  "rootDir": "./src",
-  "outDir": "./dist",
-  "target": "ES2022",
-  "module": "ES2022",
-  "moduleResolution": "NodeNext",
-  "strict": true,
-  "esModuleInterop": true
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",                // 👈 CRITICAL CHANGE
+    "moduleResolution": "Node",
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "rootDir": "./src",
+    "outDir": "./dist"
+  }
 }
