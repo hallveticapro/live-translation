@@ -37,10 +37,22 @@ const server = https.createServer(
 
 /* === Socket.IO ============================================================== */
 
+interface CaptionPayload {
+  id: string;
+  text: string;
+  timestamp: number;
+}
+
 const io = new Server(server, { cors: { origin: "*" } });
 
 io.on("connection", (socket) => {
-  console.log("🔌  socket connected", socket.id);
+  console.log("🔌 socket connected", socket.id);
+
+  // Receive message from /admin and rebroadcast to all /live clients
+  socket.on("admin:caption", (payload: CaptionPayload) => {
+    io.emit("broadcast:caption", payload);
+  });
+
   socket.on("disconnect", () => console.log("socket disconnected", socket.id));
 });
 

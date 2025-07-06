@@ -19,7 +19,6 @@ function App() {
       <h1 className="text-4xl font-bold text-blue-600">
         Vite + React + Tailwind v4
       </h1>
-
       <div className="card">
         <button onClick={() => setCount((count) => count + 1)}>
           count is {count}
@@ -34,6 +33,15 @@ function App() {
       <a href="/admin" className="text-blue-600 underline">
         Go to /admin mic test
       </a>
+      /* inside the return (…) */
+      <div className="flex flex-col gap-4 text-xl">
+        <a href="/admin" className="text-blue-600 underline">
+          Go to /admin
+        </a>
+        <a href="/live" className="text-blue-600 underline">
+          Go to /live
+        </a>
+      </div>
     </>
   );
 }
