@@ -1,1 +1,1 @@
-# live-translation
+# Real-Time Classroom Translation Tool

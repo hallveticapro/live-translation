@@ -1,0 +1,12 @@
+# Node
+node_modules/
+npm-debug.log*
+.env
+.env.*
+dist/
+build/
+# Certs & logs
+certs/
+logs/
+# macOS
+.DS_Store
