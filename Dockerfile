@@ -15,31 +15,36 @@ WORKDIR /app/client
 COPY client/package*.json ./
 RUN npm install
 
-# ✅ Copy everything else *after* deps
+# Copy everything else, including config template
 COPY client .
+
+# Build client (config.template.js should be in place)
 RUN npm run build
 
-# Final runtime image
+################ 3) Final runtime image #########################################
 FROM node:20-alpine
 
 WORKDIR /app
 
-# ------------- copy build artifacts -------------
+# ✅ Install dependencies needed for runtime + envsubst
+RUN apk add --no-cache openssl gettext
+
+# Copy build artifacts
 COPY --from=server-builder /app/server /app/server
 COPY --from=client-builder /app/client/dist /app/client_dist
 
-# copy the template config
-COPY client/public/config.template.js /app/client_dist/config.template.js
+# Copy config template + entrypoint script
+COPY client/config.template.js /app/client_dist/config.template.js
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
-# ------------- generate self-signed certs -------
-RUN apk add --no-cache openssl && \
-  mkdir /app/certs && \
+# Generate self-signed certs
+RUN mkdir /app/certs && \
   openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
   -keyout /app/certs/localhost-key.pem \
   -out   /app/certs/localhost.pem \
   -subj "/CN=localhost"
 
-# Runtime ENV
 ENV CERTS_DIR=/app/certs
 ENV NODE_ENV=production
 ENV PORT=3000
@@ -47,5 +52,4 @@ ENV API_BASE_URL=https://translate.ahall.dev
 
 EXPOSE 3000
 
-# ✅ Runtime inject env into config.js before boot
-CMD sh -c 'envsubst < /app/client_dist/config.template.js > /app/client_dist/config.js && node server/dist/index.js'
+CMD ["/app/entrypoint.sh"]
