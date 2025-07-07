@@ -3,6 +3,8 @@ import reactLogo from "./assets/react.svg";
 import viteLogo from "/vite.svg";
 import "./App.css";
 
+import AppToaster from "./components/AppToaster";
+
 function App() {
   const [count, setCount] = useState(0);
 
@@ -42,6 +44,8 @@ function App() {
           Go to /live
         </a>
       </div>
+      <RouterProvider router={router} />
+      <AppToaster /> {/* add here */}
     </>
   );
 }

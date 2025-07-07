@@ -78,7 +78,7 @@ export default function AdminMic() {
     setStatus("🎤 recording…");
 
     // stop this recorder after 9 s to flush a complete container
-    restartRef.current = setTimeout(() => rec.stop(), 1000);
+    restartRef.current = setTimeout(() => rec.stop(), 3000);
   };
 
   /* --- UI handlers ----------------------------------------------------- */

@@ -8,6 +8,7 @@ import AdminEcho from "./pages/AdminEcho.jsx";
 import LiveFeed from "./pages/LiveFeed.jsx";
 import AdminMic from "./pages/AdminMic.jsx";
 import "./index.css";
+import AppToaster from "./components/AppToaster";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
