@@ -1,4 +1,5 @@
 /* client/src/pages/LiveFeed.jsx */
+
 import { useEffect, useRef, useState } from "react";
 import { socket } from "../lib/socket";
 import useDarkMode from "../hooks/useDarkMode";
@@ -16,7 +17,12 @@ export default function LiveFeed() {
   const [dark, setDark] = useDarkMode();
 
   // Language
-  const [lang, setLang] = useState(() => localStorage.getItem("lang") || "en");
+  const defaultLang = "es";
+  const storedLang = localStorage.getItem("lang");
+  const validLang = LANGS.some((l) => l.code === storedLang)
+    ? storedLang
+    : defaultLang;
+  const [lang, setLang] = useState(validLang);
   const [showLang, setShowLang] = useState(false);
 
   // Messages + scroll anchor
@@ -45,10 +51,15 @@ export default function LiveFeed() {
 
   // 4) Change language w/ toast
   const pickLang = (code) => {
-    const label = LANGS.find((l) => l.code === code).label;
-    toast.success(`Language switched to ${label}!`);
-    localStorage.setItem("lang", code);
-    setLang(code);
+    const match = LANGS.find((l) => l.code === code);
+    if (!match) {
+      toast.error(`Unsupported language code: ${code}`);
+      return;
+    }
+
+    toast.success(`Language switched to ${match.label}!`);
+    localStorage.setItem("lang", match.code);
+    setLang(match.code);
     setShowLang(false);
   };
 
@@ -59,8 +70,8 @@ export default function LiveFeed() {
         id="feed"
         className="
           flex-1 w-full max-w-3xl mx-auto px-4 overflow-y-auto
-          flex flex-col justify-end      /* <–– ensures start at bottom */
-          pb-18                         /* padding so messages never slip under pill */
+          flex flex-col justify-end
+          pb-18
         "
       >
         <AnimatePresence initial={false}>
@@ -98,7 +109,7 @@ export default function LiveFeed() {
             onClick={() => setShowLang((s) => !s)}
             className="p-1 rounded hover:bg-white/10 text-xl"
           >
-            {LANGS.find((l) => l.code === lang).emoji}
+            {LANGS.find((l) => l.code === lang)?.emoji ?? "🌐"}
           </button>
           {showLang && (
             <ul className="absolute bottom-12 right-0 bg-gray-800 dark:bg-gray-700 border border-gray-600 rounded-xl overflow-hidden shadow-lg z-50">
