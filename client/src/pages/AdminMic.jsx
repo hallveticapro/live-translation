@@ -6,19 +6,17 @@ export default function AdminMic() {
   const [recording, setRecording] = useState(false);
   const [status, setStatus] = useState("Idle");
 
-  const streamRef = useRef(null); // active MediaStream
-  const analyserRef = useRef(null); // Audio analyser for meter
-  const rafRef = useRef(null); // requestAnimationFrame id
-  const recorderRef = useRef(null); // current MediaRecorder
-  const restartRef = useRef(null); // setTimeout id for 3-s restart
+  const streamRef = useRef(null);
+  const analyserRef = useRef(null);
+  const rafRef = useRef(null);
+  const recorderRef = useRef(null);
+  const recordingRef = useRef(false); // NEW: controls loop
 
-  /* --- Socket debug ---------------------------------------------------- */
   useEffect(() => {
     socket.on("connect", () => console.log("WS connected"));
     return () => socket.off("connect");
   }, []);
 
-  /* --- Meter helpers --------------------------------------------------- */
   const startVisualizer = () => {
     const analyser = analyserRef.current;
     if (!analyser) return;
@@ -42,10 +40,9 @@ export default function AdminMic() {
     if (bar) bar.style.transform = "scaleX(1)";
   };
 
-  /* --- Core: start a fresh recorder every 3 s -------------------------- */
   const startNewRecorder = () => {
     const stream = streamRef.current;
-    if (!stream) return;
+    if (!stream || !recordingRef.current) return;
 
     const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
       ? "audio/webm;codecs=opus"
@@ -84,17 +81,23 @@ export default function AdminMic() {
     };
 
     rec.onstop = () => {
-      restartRef.current = setTimeout(startNewRecorder, 0);
+      if (recordingRef.current) startNewRecorder(); // loop cleanly
+    };
+
+    rec.onerror = (e) => {
+      console.error("MediaRecorder error:", e.error);
+      setStatus("❌ recorder error");
     };
 
     rec.start();
     recorderRef.current = rec;
     setStatus("🎤 recording…");
 
-    restartRef.current = setTimeout(() => rec.stop(), 3000);
+    setTimeout(() => {
+      if (rec.state !== "inactive") rec.stop();
+    }, 3000);
   };
 
-  /* --- UI handlers ----------------------------------------------------- */
   const handleStart = async () => {
     console.log("isSecureContext:", window.isSecureContext);
     console.log(
@@ -114,6 +117,7 @@ export default function AdminMic() {
       src.connect(analyser);
       analyserRef.current = analyser;
 
+      recordingRef.current = true;
       startVisualizer();
       setRecording(true);
       startNewRecorder();
@@ -124,7 +128,7 @@ export default function AdminMic() {
   };
 
   const handleStop = () => {
-    if (restartRef.current) clearTimeout(restartRef.current);
+    recordingRef.current = false;
     recorderRef.current?.stop();
     streamRef.current?.getTracks().forEach((t) => t.stop());
     stopVisualizer();
@@ -132,7 +136,6 @@ export default function AdminMic() {
     setStatus("Stopped");
   };
 
-  /* --- Render ---------------------------------------------------------- */
   return (
     <main className="min-h-screen flex flex-col items-center justify-center gap-6">
       <h1 className="text-2xl font-bold">Admin Mic Capture</h1>
