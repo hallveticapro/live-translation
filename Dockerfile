@@ -40,6 +40,13 @@ COPY client/config.template.js /app/client_dist/config.template.js
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
+# Generate self-signed certs
+RUN mkdir /app/certs && \
+  openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout /app/certs/localhost-key.pem \
+  -out   /app/certs/localhost.pem \
+  -subj "/CN=localhost"
+
 # ✅ Set environment variables
 ENV CERTS_DIR=/app/certs
 ENV NODE_ENV=production
