@@ -156,14 +156,32 @@ app.post("/api/transcribe", (req, res) => {
       const idBase = randomUUID();
       const ts = Date.now();
 
-      translations.forEach((t) =>
-        io.to(t.lang).emit("broadcast:caption", {
-          id: `${idBase}-${t.lang}`,
-          text: t.text,
-          lang: t.lang,
-          timestamp: ts,
-        } as Caption)
-      );
+      /**
+       * 1) Emit raw English
+       */
+      io.to("en").emit("broadcast:caption", {
+        id: `${idBase}-en`,
+        text: transcript,
+        lang: "en",
+        timestamp: ts,
+      } as Caption);
+
+      /**
+       * 2) Emit translated languages (es, pt, …)
+       */
+      for (const lang of TARGET_LANGS) {
+        try {
+          const translated = await mistralTranslate(transcript, lang);
+          io.to(lang).emit("broadcast:caption", {
+            id: `${idBase}-${lang}`,
+            text: translated,
+            lang,
+            timestamp: ts,
+          } as Caption);
+        } catch (err) {
+          console.error(`[Translate:${lang}]`, err);
+        }
+      }
 
       res.json({ ok: true });
     } catch (err) {

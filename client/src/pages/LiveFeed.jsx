@@ -8,6 +8,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import toast from "react-hot-toast";
 
 const LANGS = [
+  { code: "en", label: "English", emoji: "🇺🇸" },
   { code: "es", label: "Spanish (Latin America)", emoji: "🇻🇪" },
   { code: "pt", label: "Portuguese (Brazil)", emoji: "🇧🇷" },
 ];
@@ -38,7 +39,11 @@ export default function LiveFeed() {
   useEffect(() => {
     const handler = (p) => {
       if (p.lang !== lang) return;
-      setMsgs((cur) => [...cur, p].slice(-50)); // append, cap at 50
+      setMsgs((cur) =>
+        [...cur, p]
+          .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+          .slice(-50)
+      );
     };
     socket.on("broadcast:caption", handler);
     return () => void socket.off("broadcast:caption", handler);
