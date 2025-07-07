@@ -8,10 +8,19 @@ RUN npm run build
 
 # Second stage: client builder
 FROM node:20-alpine AS client-builder
+
 WORKDIR /app/client
+
 COPY client/package*.json ./
 RUN npm install
+
+# ✅ COPY THE .env FILE HERE
+COPY client/.env .env
+
+# ✅ NOW copy everything else (so .env isn't overwritten)
 COPY client .
+
+# ✅ Now run the build with the env injected
 RUN npm run build
 
 ################ 3) Final runtime image #########################################
