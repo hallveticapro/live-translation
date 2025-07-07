@@ -70,7 +70,8 @@ export default function AdminMic() {
 
       setStatus("⬆️ uploading…");
       try {
-        await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/transcribe`, {
+        const baseUrl = window.__CONFIG__?.API_BASE_URL || "";
+        await fetch(`${baseUrl}/api/transcribe`, {
           method: "POST",
           body: form,
         });

@@ -105,7 +105,7 @@ interface WhisperResponse {
   [key: string]: any;
 }
 
-app.post(`${process.env.VITE_API_BASE_URL}/api/transcribe`, (req, res) => {
+app.post("/api/transcribe", (req, res) => {
   const bb = busboy({ headers: req.headers });
   const chunks: Buffer[] = [];
 

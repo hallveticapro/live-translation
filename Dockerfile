@@ -14,9 +14,6 @@ WORKDIR /app/client
 COPY client/package*.json ./
 RUN npm install
 
-# ✅ COPY THE .env FILE HERE
-COPY client/.env .env
-
 # ✅ NOW copy everything else (so .env isn't overwritten)
 COPY client .
 
@@ -47,3 +44,4 @@ ENV PORT=3000
 EXPOSE 3000
 
 CMD ["node", "server/dist/index.js"]
+CMD ["sh", "-c", "echo 'window.__CONFIG__ = { API_BASE_URL: \"${API_BASE_URL}\" };' > /app/client_dist/config.js && node server/dist/index.js"]
