@@ -2,7 +2,7 @@
 import { io } from "socket.io-client";
 
 // Same origin but different port
-export const socket = io("https://localhost:3000", {
+export const socket = io(import.meta.env.VITE_API_BASE_URL, {
   transports: ["websocket"],
   withCredentials: true,
 });
