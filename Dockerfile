@@ -1,26 +1,25 @@
 # First stage: server builder
 FROM node:20-alpine AS server-builder
 WORKDIR /app/server
+
 COPY server/package*.json ./
 RUN npm install
+
 COPY server .
 RUN npm run build
 
 # Second stage: client builder
 FROM node:20-alpine AS client-builder
-
 WORKDIR /app/client
 
 COPY client/package*.json ./
 RUN npm install
 
-# ✅ NOW copy everything else (so .env isn't overwritten)
+# ✅ Copy everything else *after* deps
 COPY client .
-
-# ✅ Now run the build with the env injected
 RUN npm run build
 
-################ 3) Final runtime image #########################################
+# Final runtime image
 FROM node:20-alpine
 
 WORKDIR /app
@@ -37,6 +36,7 @@ RUN apk add --no-cache openssl && \
   -out   /app/certs/localhost.pem \
   -subj "/CN=localhost"
 
+# Runtime ENV
 ENV CERTS_DIR=/app/certs
 ENV NODE_ENV=production
 ENV PORT=3000
@@ -44,5 +44,5 @@ ENV API_BASE_URL=https://translate.ahall.dev
 
 EXPOSE 3000
 
-CMD ["node", "server/dist/index.js"]
-CMD ["sh", "-c", "echo 'window.__CONFIG__ = { API_BASE_URL: \"${API_BASE_URL}\" };' > /app/client_dist/config.js && node server/dist/index.js"]
+# ✅ Runtime inject env into config.js before boot
+CMD sh -c 'envsubst < /app/client_dist/config.template.js > /app/client_dist/config.js && node server/dist/index.js'
