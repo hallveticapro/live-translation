@@ -17,8 +17,12 @@ dotenv.config({ path: path.join(process.cwd(), ".env") });
 
 /* --- Config ------------------------------------------------------------- */
 const PORT = Number(process.env.PORT) || 3000;
-const CERTS_DIR =
-  process.env.CERTS_DIR || path.join(process.env.HOME || "", "code/certs");
+// Resolve a certs directory that ALWAYS ends up as a string
+const defaultCerts = path.join(process.env.HOME || "", "code/certs");
+const CERTS_DIR: string =
+  process.env.CERTS_DIR && fs.existsSync(process.env.CERTS_DIR)
+    ? process.env.CERTS_DIR // valid custom path
+    : defaultCerts; // fallback
 const GROQ_KEY = process.env.GROQ_API_KEY || "";
 const MISTRAL_KEY = process.env.MISTRAL_API_KEY || "";
 const TARGET_LANGS = (process.env.TARGET_LANGS || "es,pt")
@@ -28,6 +32,7 @@ const TARGET_LANGS = (process.env.TARGET_LANGS || "es,pt")
 /* --- Express + HTTPS ---------------------------------------------------- */
 const app = express();
 app.use(cors());
+app.use(express.static(path.join(process.cwd(), "client_dist")));
 app.get("/healthz", (_req, res) => {
   res.send("OK");
 });
