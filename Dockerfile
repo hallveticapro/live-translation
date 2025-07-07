@@ -29,7 +29,7 @@ COPY --from=server-builder /app/server /app/server
 COPY --from=client-builder /app/client/dist /app/client_dist
 
 # copy the template config
-COPY client/config.template.js /app/client_dist/config.template.js
+COPY client/public/config.template.js /app/client_dist/config.template.js
 
 # ------------- generate self-signed certs -------
 RUN apk add --no-cache openssl && \
