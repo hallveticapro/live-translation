@@ -34,7 +34,7 @@ COPY --from=server-builder /app/server /app/server
 COPY --from=client-builder /app/client/dist /app/client_dist
 
 # Copy config template + entrypoint script
-COPY client/config.template.js /app/client_dist/config.template.js
+COPY client/public/config.template.js /app/client_dist/config.template.js
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
