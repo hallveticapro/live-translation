@@ -1,4 +1,3 @@
-/* === server/src/index.ts =============================================== */
 import path from "node:path";
 import fs from "node:fs";
 import https from "node:https";
@@ -12,28 +11,30 @@ import dotenv from "dotenv";
 import busboy from "busboy";
 import fetch from "node-fetch";
 import { FormData, File } from "formdata-node";
+import type { Request, Response } from "express";
 
 dotenv.config({ path: path.join(process.cwd(), ".env") });
 
-/* --- Config ------------------------------------------------------------- */
 const PORT = Number(process.env.PORT) || 3000;
-// Resolve a certs directory that ALWAYS ends up as a string
 const defaultCerts = path.join(process.env.HOME || "", "code/certs");
-const CERTS_DIR: string =
+const CERTS_DIR =
   process.env.CERTS_DIR && fs.existsSync(process.env.CERTS_DIR)
-    ? process.env.CERTS_DIR // valid custom path
-    : defaultCerts; // fallback
+    ? process.env.CERTS_DIR
+    : defaultCerts;
+
 const GROQ_KEY = process.env.GROQ_API_KEY || "";
 const MISTRAL_KEY = process.env.MISTRAL_API_KEY || "";
 const TARGET_LANGS = (process.env.TARGET_LANGS || "es,pt")
   .split(",")
   .map((s) => s.trim().toLowerCase());
 
-/* --- Express + HTTPS ---------------------------------------------------- */
 const app = express();
+const clientDist = path.join(process.cwd(), "client_dist");
+
 app.use(cors());
-app.use(express.static(path.join(process.cwd(), "client_dist")));
-app.get("/healthz", (_req, res) => {
+app.use(express.static(clientDist));
+
+app.get("/healthz", (_req: Request, res: Response) => {
   res.send("OK");
 });
 
@@ -45,13 +46,13 @@ const server = https.createServer(
   app
 );
 
-/* --- WebSocket ---------------------------------------------------------- */
 interface Caption {
   id: string;
   text: string;
   lang: string;
   timestamp: number;
 }
+
 const io = new Server(server, { cors: { origin: "*" } });
 
 io.on("connection", (socket) => {
@@ -61,7 +62,6 @@ io.on("connection", (socket) => {
   });
 });
 
-/* --- Mistral helper (stricter, per-call) ------------------------------- */
 async function mistralTranslate(text: string, target: string): Promise<string> {
   const body = {
     model: "mistral-small",
@@ -70,8 +70,7 @@ async function mistralTranslate(text: string, target: string): Promise<string> {
       {
         role: "system",
         content:
-          "You are a translation engine. Respond ONLY with the translated sentence. " +
-          "Do NOT add language names, notes, brackets, or parentheses.",
+          "You are a translation engine. Respond ONLY with the translated sentence. Do NOT add language names, notes, brackets, or parentheses.",
       },
       {
         role: "user",
@@ -93,7 +92,6 @@ async function mistralTranslate(text: string, target: string): Promise<string> {
   const json: any = await resp.json();
   let out = json.choices[0].message.content.trim();
 
-  /* Post-filter: keep first line, strip bracketed / parenthetical tags */
   out = out
     .split("\n")[0]
     .replace(/\[.*?\]/g, "")
@@ -102,7 +100,11 @@ async function mistralTranslate(text: string, target: string): Promise<string> {
   return out;
 }
 
-/* --- /api/transcribe ---------------------------------------------------- */
+interface WhisperResponse {
+  text?: string;
+  [key: string]: any;
+}
+
 app.post("/api/transcribe", (req, res) => {
   const bb = busboy({ headers: req.headers });
   const chunks: Buffer[] = [];
@@ -113,11 +115,11 @@ app.post("/api/transcribe", (req, res) => {
     try {
       const audio = Buffer.concat(chunks);
 
-      /* 1. Groq Whisper -------------------------------------------------- */
       const form = new FormData();
       const file = new File([audio], "chunk.webm", {
         type: "audio/webm;codecs=opus",
       });
+
       form.set("file", file);
       form.set("model", "whisper-large-v3");
       form.set("response_format", "json");
@@ -131,17 +133,19 @@ app.post("/api/transcribe", (req, res) => {
           body: form as any,
         }
       );
-      const whisperJson = await whisperRes.json();
+
+      // 🛠 FIXED: assert type instead of declaring
+      const whisperJson = (await whisperRes.json()) as WhisperResponse;
+
       console.log(
         "[Whisper]",
         whisperRes.status,
         JSON.stringify(whisperJson).slice(0, 120)
       );
 
-      const transcript: string | undefined = (whisperJson as any).text?.trim();
+      const transcript = whisperJson.text?.trim();
       if (!transcript) throw new Error("Empty transcript");
 
-      /* 2. Translate via Mistral ---------------------------------------- */
       const translations = await Promise.all(
         TARGET_LANGS.map(async (lang) => {
           const txt = await mistralTranslate(transcript, lang);
@@ -149,9 +153,9 @@ app.post("/api/transcribe", (req, res) => {
         })
       );
 
-      /* 3. Broadcast ----------------------------------------------------- */
       const idBase = randomUUID();
       const ts = Date.now();
+
       translations.forEach((t) =>
         io.to(t.lang).emit("broadcast:caption", {
           id: `${idBase}-${t.lang}`,
@@ -171,7 +175,15 @@ app.post("/api/transcribe", (req, res) => {
   req.pipe(bb);
 });
 
-/* --- Boot --------------------------------------------------------------- */
+import type { RequestHandler } from "express";
+
+/** Serve index.html for any unmatched route (SPA fallback) */
+const spaHandler: RequestHandler = (_req, res) => {
+  res.sendFile(path.join(clientDist, "index.html"));
+};
+
+app.use(spaHandler); // <— no path string, so it catches everything
+
 server.listen(PORT, () =>
-  console.log(`🚀  Server listening on https://localhost:${PORT}`)
+  console.log(`🚀 Server listening on https://localhost:${PORT}`)
 );
