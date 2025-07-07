@@ -1,16 +1,19 @@
-/* client/src/pages/AdminMic.jsx */
 import { useEffect, useRef, useState } from "react";
 import { socket } from "../lib/socket";
+import { HiOutlineMicrophone, HiOutlineXCircle } from "react-icons/hi";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function AdminMic() {
   const [recording, setRecording] = useState(false);
   const [status, setStatus] = useState("Idle");
+  const [logs, setLogs] = useState([]);
 
   const streamRef = useRef(null);
   const analyserRef = useRef(null);
   const rafRef = useRef(null);
   const recorderRef = useRef(null);
-  const recordingRef = useRef(false); // NEW: controls loop
+  const recordingRef = useRef(false);
+  const bottomRef = useRef(null);
 
   useEffect(() => {
     socket.on("connect", () => console.log("WS connected"));
@@ -30,7 +33,6 @@ export default function AdminMic() {
       if (bar) bar.style.transform = `scaleX(${scale})`;
       rafRef.current = requestAnimationFrame(draw);
     };
-
     draw();
   };
 
@@ -50,7 +52,6 @@ export default function AdminMic() {
       ? "audio/webm"
       : "";
 
-    console.log("Selected MIME type:", mimeType);
     if (!mimeType) {
       console.error("❌ No supported MediaRecorder MIME type available.");
       setStatus("❌ unsupported format");
@@ -64,24 +65,26 @@ export default function AdminMic() {
 
       const form = new FormData();
       form.append("file", e.data, "chunk.webm");
-
       setStatus("⬆️ uploading…");
+
       try {
-        await fetch(`${window.__CONFIG__?.API_BASE_URL}/api/transcribe`, {
-          method: "POST",
-          body: form,
-        });
+        const res = await fetch(
+          `${window.__CONFIG__?.API_BASE_URL}/api/transcribe`,
+          {
+            method: "POST",
+            body: form,
+          }
+        );
+        if (!res.ok) throw new Error("Upload failed");
+        setStatus("🎤 recording…");
       } catch (err) {
         console.error(err);
         setStatus("❌ upload failed");
-        return;
       }
-
-      setStatus("🎤 recording…");
     };
 
     rec.onstop = () => {
-      if (recordingRef.current) startNewRecorder(); // loop cleanly
+      if (recordingRef.current) startNewRecorder();
     };
 
     rec.onerror = (e) => {
@@ -92,20 +95,12 @@ export default function AdminMic() {
     rec.start();
     recorderRef.current = rec;
     setStatus("🎤 recording…");
-
     setTimeout(() => {
       if (rec.state !== "inactive") rec.stop();
     }, 3000);
   };
 
   const handleStart = async () => {
-    console.log("isSecureContext:", window.isSecureContext);
-    console.log(
-      "Supports opus:",
-      MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-    );
-    console.log("Supports webm:", MediaRecorder.isTypeSupported("audio/webm"));
-
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -136,35 +131,62 @@ export default function AdminMic() {
     setStatus("Stopped");
   };
 
+  useEffect(() => {
+    const handler = (p) => {
+      if (p.lang === "en") {
+        setLogs((cur) => [...cur, p].slice(-50));
+      }
+    };
+    socket.on("broadcast:caption", handler);
+    return () => socket.off("broadcast:caption", handler);
+  }, []);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "auto" });
+  }, [logs]);
+
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center gap-6">
-      <h1 className="text-2xl font-bold">Admin Mic Capture</h1>
+    <div className="relative min-h-screen flex flex-col bg-black text-white">
+      {/* Log feed */}
+      <div className="flex-1 w-full max-w-3xl mx-auto px-4 overflow-y-auto flex flex-col justify-end pb-20">
+        <AnimatePresence initial={false}>
+          {logs.map((m, i) => (
+            <motion.p
+              key={m.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.25 }}
+              className={`text-2xl my-2 text-center break-words ${
+                i === logs.length - 1 ? "text-white" : "text-gray-400"
+              }`}
+            >
+              {m.text}
+            </motion.p>
+          ))}
+        </AnimatePresence>
+        <div ref={bottomRef} />
+      </div>
 
-      <p>{status}</p>
-      <div
-        id="meter"
-        className="h-2 w-40 bg-green-500 origin-left transition-transform"
-      ></div>
-
-      {recording ? (
+      {/* Pill footer */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-gray-800/90 dark:bg-gray-700/90 backdrop-blur-sm text-white rounded-full shadow-lg flex items-center gap-4 px-6 py-2">
+        {/* Mic toggle */}
         <button
-          onClick={handleStop}
-          className="bg-red-600 text-white px-6 py-2 rounded"
+          onClick={recording ? handleStop : handleStart}
+          className="p-1 rounded hover:bg-white/10 text-xl"
         >
-          Stop
+          {recording ? <HiOutlineXCircle /> : <HiOutlineMicrophone />}
         </button>
-      ) : (
-        <button
-          onClick={handleStart}
-          className="bg-green-600 text-white px-6 py-2 rounded"
-        >
-          Start
-        </button>
-      )}
 
-      <a href="/" className="text-blue-600 underline">
-        Back to Home
-      </a>
-    </main>
+        {/* Status */}
+        <span className="text-sm">{status}</span>
+
+        {/* Voice meter */}
+        <div
+          id="meter"
+          className="h-2 w-24 bg-green-500 origin-left transition-transform rounded"
+        ></div>
+      </div>
+    </div>
   );
 }
