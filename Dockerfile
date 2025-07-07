@@ -1,8 +1,18 @@
-################ 1) Build client ################################################
-# ... (client-builder stage unchanged)
+# First stage: server builder
+FROM node:20-alpine AS server-builder
+WORKDIR /app/server
+COPY server/package*.json ./
+RUN npm install
+COPY server .
+RUN npm run build
 
-################ 2) Build server ################################################
-# ... (server-builder stage unchanged)
+# Second stage: client builder
+FROM node:20-alpine AS client-builder
+WORKDIR /app/client
+COPY client/package*.json ./
+RUN npm install
+COPY client .
+RUN npm run build
 
 ################ 3) Final runtime image #########################################
 FROM node:20-alpine
