@@ -63,6 +63,8 @@ io.on("connection", (socket) => {
 });
 
 async function mistralTranslate(text: string, target: string): Promise<string> {
+  if (!text.trim()) return "-";
+
   const body = {
     model: "mistral-small",
     temperature: 0,
@@ -70,20 +72,16 @@ async function mistralTranslate(text: string, target: string): Promise<string> {
       {
         role: "system",
         content:
-          "You are a strict translation engine. Only return the translated version of the user's input. " +
-          "If the input is blank, non-verbal, or contains no useful words, respond with a single hyphen character: '-' (without quotes). " +
-          "Do NOT include explanations, markdown formatting, language names, notes, or commentary. " +
-          "Do NOT wrap the response in quotation marks, parentheses, or brackets. " +
-          "Respond ONLY with the translated sentence and nothing else.",
+          "You are a translation engine. Respond ONLY with the translated sentence. Do NOT add language names, notes, brackets, or parentheses. If the input is empty or has no translatable content, respond with a single dash (-).",
       },
       {
         role: "user",
-        content: `Translate this sentence to ${target}: ${text}`,
+        content: `Translate this sentence to ${target}:\n\`\`\`\n${text}\n\`\`\``,
       },
     ],
   };
 
-  const resp = await fetch("https://api.mistral.ai/v1/chat/completions", {
+  const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -92,27 +90,21 @@ async function mistralTranslate(text: string, target: string): Promise<string> {
     body: JSON.stringify(body),
   });
 
-  if (!resp.ok) throw new Error(`Mistral ${resp.status}: ${await resp.text()}`);
-  const json: any = await resp.json();
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Mistral ${response.status}: ${errorText}`);
+  }
 
-  let out = json.choices?.[0]?.message?.content?.trim() || "-";
+  const json: any = await response.json();
+  let output = json.choices[0].message.content.trim();
 
-  // Final fallback sanitization
-  out = out.replace(/^[\[\(\{"]?(.*?)[\]\)\}"]?$/g, "$1").trim();
-
-  return out || "-";
-}
-
-  if (!resp.ok) throw new Error(`Mistral ${resp.status}: ${await resp.text()}`);
-  const json: any = await resp.json();
-  let out = json.choices[0].message.content.trim();
-
-  out = out
+  output = output
     .split("\n")[0]
     .replace(/\[.*?\]/g, "")
     .replace(/\(.*?\)/g, "")
     .trim();
-  return out;
+
+  return output || "-";
 }
 
 interface WhisperResponse {
