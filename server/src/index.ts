@@ -70,11 +70,15 @@ async function mistralTranslate(text: string, target: string): Promise<string> {
       {
         role: "system",
         content:
-          "You are a translation engine. Respond ONLY with the translated sentence. Do NOT add language names, notes, brackets, or parentheses.",
+          "You are a strict translation engine. Only return the translated version of the user's input. " +
+          "If the input is blank, non-verbal, or contains no useful words, respond with a single hyphen character: '-' (without quotes). " +
+          "Do NOT include explanations, markdown formatting, language names, notes, or commentary. " +
+          "Do NOT wrap the response in quotation marks, parentheses, or brackets. " +
+          "Respond ONLY with the translated sentence and nothing else.",
       },
       {
         role: "user",
-        content: `Translate this sentence to ${target}:\n\`\`\`\n${text}\n\`\`\``,
+        content: `Translate this sentence to ${target}: ${text}`,
       },
     ],
   };
@@ -87,6 +91,17 @@ async function mistralTranslate(text: string, target: string): Promise<string> {
     },
     body: JSON.stringify(body),
   });
+
+  if (!resp.ok) throw new Error(`Mistral ${resp.status}: ${await resp.text()}`);
+  const json: any = await resp.json();
+
+  let out = json.choices?.[0]?.message?.content?.trim() || "-";
+
+  // Final fallback sanitization
+  out = out.replace(/^[\[\(\{"]?(.*?)[\]\)\}"]?$/g, "$1").trim();
+
+  return out || "-";
+}
 
   if (!resp.ok) throw new Error(`Mistral ${resp.status}: ${await resp.text()}`);
   const json: any = await resp.json();
